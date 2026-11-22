@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ACID Core Banking &amp; Fund Transfer System</title>
+  <title>ACID Core Banking — Customer Portal</title>
   <link rel="stylesheet" href="{{ url_for('static', filename='styles.css') }}" />
 </head>
 <body>
@@ -11,17 +11,15 @@
     <div class="container topbar-inner">
       <div>
         <h1>ACID Core Banking</h1>
-        <p class="subtitle">SQLite WAL + Explicit Transaction Engine (Atomicity &bull; Consistency &bull; Isolation &bull; Durability)</p>
+        <p class="subtitle">Personal Digital Banking &bull; SQLite WAL Transactional Engine</p>
       </div>
-      <div class="stats-bar">
-        <div class="stat-pill">
-          <span class="stat-label">Active Accounts</span>
-          <strong id="stat-count">0</strong>
+      <div id="user-nav" class="user-nav hidden">
+        <div class="user-badge">
+          <span id="nav-acc-num" class="badge-acc">ACC-000</span>
+          <strong id="nav-owner">Customer</strong>
         </div>
-        <div class="stat-pill">
-          <span class="stat-label">System Liquidity</span>
-          <strong id="stat-liquidity">$0.00</strong>
-        </div>
+        <button type="button" id="open-profile-btn" class="btn btn-nav">Profile</button>
+        <button type="button" id="logout-btn" class="btn btn-nav-danger">Sign Out</button>
       </div>
     </div>
   </header>
@@ -33,168 +31,191 @@
       <button type="button" id="alert-close" aria-label="Dismiss alert">&times;</button>
     </div>
 
-    <!-- Action Cards Grid -->
-    <section class="grid-3">
-      <!-- Card 1: Create Account -->
-      <div class="card">
-        <h2>1. Open New Account</h2>
-        <form id="create-account-form">
-          <div class="form-group">
-            <label for="acc-number">Account Number</label>
-            <input type="text" id="acc-number" placeholder="e.g. ACC-1001" required />
-          </div>
-          <div class="form-group">
-            <label for="acc-owner">Owner Full Name</label>
-            <input type="text" id="acc-owner" placeholder="e.g. Alice Rivera" required />
-          </div>
-          <div class="form-group">
-            <label for="acc-email">Email Address</label>
-            <input type="email" id="acc-email" placeholder="alice@example.com" required />
-          </div>
-          <div class="form-group">
-            <label for="acc-balance">Initial Deposit ($)</label>
-            <input type="number" id="acc-balance" step="0.01" min="0" value="0.00" required />
-          </div>
-          <button type="submit" class="btn btn-primary">Create Account</button>
-        </form>
-      </div>
-
-      <!-- Card 2: ACID Fund Transfer -->
-      <div class="card card-accent">
-        <h2>2. ACID Fund Transfer</h2>
-        <form id="transfer-form">
-          <div class="form-group">
-            <label for="tx-from">From Account (Debit)</label>
-            <select id="tx-from" required>
-              <option value="">-- Select Source Account --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="tx-to">To Account (Credit)</label>
-            <select id="tx-to" required>
-              <option value="">-- Select Destination Account --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="tx-amount">Amount ($)</label>
-            <input type="number" id="tx-amount" step="0.01" min="0.01" placeholder="100.00" required />
-          </div>
-          <div class="form-group">
-            <label for="tx-desc">Reference / Memo</label>
-            <input type="text" id="tx-desc" placeholder="Invoice #402 / Rent" />
-          </div>
-          <button type="submit" class="btn btn-success">Execute Atomic Transfer</button>
-        </form>
-      </div>
-
-      <!-- Card 3: Deposit / Withdraw -->
-      <div class="card">
-        <h2>3. Deposit / Withdraw</h2>
-        <form id="cash-form">
-          <div class="form-group">
-            <label for="cash-account">Target Account</label>
-            <select id="cash-account" required>
-              <option value="">-- Select Account --</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="cash-type">Operation Type</label>
-            <select id="cash-type" required>
-              <option value="deposit">Deposit (+)</option>
-              <option value="withdraw">Withdraw (-)</option>
-            </select>
-          </div>
-          <div class="form-group">
-            <label for="cash-amount">Amount ($)</label>
-            <input type="number" id="cash-amount" step="0.01" min="0.01" placeholder="50.00" required />
-          </div>
-          <div class="form-group">
-            <label for="cash-desc">Description</label>
-            <input type="text" id="cash-desc" placeholder="Teller deposit / ATM" />
-          </div>
-          <button type="submit" class="btn btn-secondary">Submit Transaction</button>
-        </form>
-      </div>
-    </section>
-
-    <!-- Accounts Directory Table -->
-    <section class="card section-spacer">
-      <div class="section-header">
-        <h2>Accounts Directory</h2>
-        <button type="button" id="refresh-btn" class="btn btn-outline btn-sm">Refresh Data</button>
-      </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>ID</th>
-              <th>Account #</th>
-              <th>Owner Name</th>
-              <th>Email</th>
-              <th class="text-right">Balance</th>
-              <th class="text-right">Actions</th>
-            </tr>
-          </thead>
-          <tbody id="accounts-tbody">
-            <tr><td colspan="6" class="empty-state">Loading accounts...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <!-- Transaction Audit Ledger -->
-    <section class="card section-spacer">
-      <div class="section-header">
-        <div>
-          <h2>Transaction Audit Ledger</h2>
-          <p id="ledger-filter-label" class="muted">Showing all system-wide transactions</p>
+    <!-- ===================================================== -->
+    <!-- VIEW 1: AUTHENTICATION GATE (LOGIN / CREATE ACCOUNT)  -->
+    <!-- ===================================================== -->
+    <section id="auth-view" class="auth-wrapper">
+      <div class="auth-card">
+        <div class="auth-tabs">
+          <button type="button" id="tab-login" class="auth-tab active">Sign In</button>
+          <button type="button" id="tab-register" class="auth-tab">Open New Account</button>
         </div>
-        <button type="button" id="clear-filter-btn" class="btn btn-outline btn-sm hidden">Show All Transactions</button>
+
+        <!-- Login Form -->
+        <form id="login-form" class="auth-form">
+          <h2>Welcome Back</h2>
+          <p class="muted auth-sub">Sign in with your Account Number or Email to manage your funds.</p>
+          <div class="form-group">
+            <label for="login-identifier">Account Number or Email</label>
+            <input type="text" id="login-identifier" placeholder="e.g. ACC-101 or alice@bank.com" required />
+          </div>
+          <div class="form-group">
+            <label for="login-password">Password</label>
+            <input type="password" id="login-password" placeholder="Enter your password" required />
+          </div>
+          <button type="submit" class="btn btn-primary">Sign In to Account</button>
+        </form>
+
+        <!-- Register Form -->
+        <form id="register-form" class="auth-form hidden">
+          <h2>Open a Personal Account</h2>
+          <p class="muted auth-sub">Create your account to deposit, withdraw, and send instant ACID transfers.</p>
+          <div class="form-group">
+            <label for="reg-acc-num">Choose Account Number</label>
+            <input type="text" id="reg-acc-num" placeholder="e.g. ACC-101" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-owner">Full Legal Name</label>
+            <input type="text" id="reg-owner" placeholder="e.g. Alice Rivera" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-email">Email Address</label>
+            <input type="email" id="reg-email" placeholder="alice@bank.com" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-password">Create Password (min 4 chars)</label>
+            <input type="password" id="reg-password" minlength="4" placeholder="••••••••" required />
+          </div>
+          <div class="form-group">
+            <label for="reg-balance">Initial Opening Deposit ($)</label>
+            <input type="number" id="reg-balance" step="0.01" min="0" value="500.00" required />
+          </div>
+          <button type="submit" class="btn btn-success">Create Account &amp; Sign In</button>
+        </form>
       </div>
-      <div class="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Tx ID</th>
-              <th>Type</th>
-              <th>From</th>
-              <th>To</th>
-              <th class="text-right">Amount</th>
-              <th>Description</th>
-              <th>Timestamp (UTC)</th>
-            </tr>
-          </thead>
-          <tbody id="transactions-tbody">
-            <tr><td colspan="7" class="empty-state">Loading transactions...</td></tr>
-          </tbody>
-        </table>
+    </section>
+
+    <!-- ===================================================== -->
+    <!-- VIEW 2: LOGGED-IN PERSONAL BANKING PORTAL             -->
+    <!-- ===================================================== -->
+    <section id="portal-view" class="hidden">
+      <!-- Account Hero Summary Card -->
+      <div class="hero-account-card">
+        <div>
+          <span class="hero-label">Available Balance</span>
+          <div id="hero-balance" class="hero-balance">$0.00</div>
+          <p class="hero-meta">
+            Account <strong id="hero-acc-num">ACC-000</strong> &bull;
+            <span id="hero-owner">Owner</span> (<span id="hero-email">email</span>)
+          </p>
+        </div>
+        <div class="hero-acid-tag">
+          <span class="acid-dot"></span> ACID Protected Session
+        </div>
       </div>
+
+      <!-- 3 Banking Actions: Deposit, Withdraw, Transfer -->
+      <div class="grid-3 section-spacer">
+        <!-- Card 1: Deposit -->
+        <div class="card">
+          <h2>Deposit Funds</h2>
+          <p class="muted card-desc">Add funds directly into your account balance.</p>
+          <form id="deposit-form">
+            <div class="form-group">
+              <label for="dep-amount">Amount ($)</label>
+              <input type="number" id="dep-amount" step="0.01" min="0.01" placeholder="100.00" required />
+            </div>
+            <div class="form-group">
+              <label for="dep-desc">Deposit Note</label>
+              <input type="text" id="dep-desc" placeholder="Paycheck / Cash deposit" />
+            </div>
+            <button type="submit" class="btn btn-primary">Deposit (+)</button>
+          </form>
+        </div>
+
+        <!-- Card 2: Withdraw -->
+        <div class="card">
+          <h2>Withdraw Funds</h2>
+          <p class="muted card-desc">Withdraw cash up to your available balance.</p>
+          <form id="withdraw-form">
+            <div class="form-group">
+              <label for="wit-amount">Amount ($)</label>
+              <input type="number" id="wit-amount" step="0.01" min="0.01" placeholder="50.00" required />
+            </div>
+            <div class="form-group">
+              <label for="wit-desc">Withdrawal Note</label>
+              <input type="text" id="wit-desc" placeholder="ATM / Bill payment" />
+            </div>
+            <button type="submit" class="btn btn-secondary">Withdraw (-)</button>
+          </form>
+        </div>
+
+        <!-- Card 3: ACID Fund Transfer -->
+        <div class="card card-accent">
+          <h2>Transfer Money</h2>
+          <p class="muted card-desc">Send an atomic peer-to-peer transfer to another account.</p>
+          <form id="transfer-form">
+            <div class="form-group">
+              <label for="tx-to">Recipient Account</label>
+              <select id="tx-to" required>
+                <option value="">-- Select Recipient --</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="tx-amount">Amount ($)</label>
+              <input type="number" id="tx-amount" step="0.01" min="0.01" placeholder="75.00" required />
+            </div>
+            <div class="form-group">
+              <label for="tx-desc">Payment Reference</label>
+              <input type="text" id="tx-desc" placeholder="Dinner split / Rent" />
+            </div>
+            <button type="submit" class="btn btn-success">Send Atomic Transfer</button>
+          </form>
+        </div>
+      </div>
+
+      <!-- Personal Statement / Audit Ledger -->
+      <section class="card section-spacer">
+        <div class="section-header">
+          <div>
+            <h2>Your Account Statement</h2>
+            <p class="muted">Immutable audit trail of all deposits, withdrawals, and transfers</p>
+          </div>
+          <button type="button" id="refresh-btn" class="btn btn-outline btn-sm">Refresh Statement</button>
+        </div>
+        <div class="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tx ID</th>
+                <th>Type</th>
+                <th>Counterparty / Details</th>
+                <th>Memo</th>
+                <th class="text-right">Amount</th>
+                <th>Timestamp (UTC)</th>
+              </tr>
+            </thead>
+            <tbody id="transactions-tbody">
+              <tr><td colspan="6" class="empty-state">Loading your statement...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
     </section>
   </main>
 
-  <!-- Edit Account Modal -->
-  <div id="edit-modal" class="modal hidden" role="dialog" aria-modal="true">
+  <!-- Account Profile & Closure Modal -->
+  <div id="profile-modal" class="modal hidden" role="dialog" aria-modal="true">
     <div class="modal-content">
       <div class="section-header">
-        <h3>Edit Account Details</h3>
+        <h3>Account Settings</h3>
         <button type="button" id="modal-close" class="btn-icon">&times;</button>
       </div>
-      <form id="edit-account-form">
-        <input type="hidden" id="edit-id" />
+      <form id="profile-form">
         <div class="form-group">
-          <label for="edit-acc-num">Account Number (Immutable)</label>
-          <input type="text" id="edit-acc-num" disabled />
+          <label for="prof-acc-num">Account Number (Immutable)</label>
+          <input type="text" id="prof-acc-num" disabled />
         </div>
         <div class="form-group">
-          <label for="edit-owner">Owner Full Name</label>
-          <input type="text" id="edit-owner" required />
+          <label for="prof-owner">Full Legal Name</label>
+          <input type="text" id="prof-owner" required />
         </div>
         <div class="form-group">
-          <label for="edit-email">Email Address</label>
-          <input type="email" id="edit-email" required />
+          <label for="prof-email">Email Address</label>
+          <input type="email" id="prof-email" required />
         </div>
         <div class="modal-actions">
-          <button type="button" id="modal-cancel" class="btn btn-outline">Cancel</button>
+          <button type="button" id="close-account-btn" class="btn btn-danger-outline">Close Account</button>
           <button type="submit" class="btn btn-primary">Save Changes</button>
         </div>
       </form>

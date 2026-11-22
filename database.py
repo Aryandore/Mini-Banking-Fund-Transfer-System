@@ -13,7 +13,7 @@ def get_connection(db_path: str = DEFAULT_DB_PATH, timeout: float = 10.0) -> sql
     - PRAGMA synchronous = FULL: Ensures transactions are flushed to disk on commit (Durability).
     """
     conn = sqlite3.connect(db_path, timeout=timeout, isolation_level=None)
-    conn.row_factory = sqlite3.Row  # Allows accessing columns by name (e.g., row["balance"])
+    conn.row_factory = sqlite3.Row
 
     conn.execute("PRAGMA foreign_keys = ON;")
     conn.execute("PRAGMA journal_mode = WAL;")
@@ -30,24 +30,18 @@ def init_db(db_path: str = DEFAULT_DB_PATH) -> None:
     try:
         conn.execute("BEGIN;")
 
-        # 1. Accounts Table
-        # - balance >= 0.00 enforces the invariant that no account can ever be overdrawn.
-        # - account_number is UNIQUE and non-empty.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 account_number TEXT NOT NULL UNIQUE CHECK(length(trim(account_number)) > 0),
                 owner_name TEXT NOT NULL CHECK(length(trim(owner_name)) > 0),
                 email TEXT NOT NULL UNIQUE CHECK(instr(email, '@') > 1),
+                password_hash TEXT NOT NULL CHECK(length(trim(password_hash)) > 0),
                 balance REAL NOT NULL DEFAULT 0.0 CHECK(round(balance, 2) >= 0.0),
                 created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
             );
         """)
 
-        # 2. Transactions Ledger Table
-        # - Records every deposit, withdrawal, and transfer for auditability.
-        # - ON DELETE RESTRICT prevents deleting an account that still has ledger history,
-        #   preserving financial audit integrity (or we handle safe deletion in CRUD).
         conn.execute("""
             CREATE TABLE IF NOT EXISTS transactions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
