@@ -1,0 +1,21 @@
+# Virtual Environment
+venv/
+env/
+
+# Python Bytecode & Caches
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+
+# SQLite Database Files (including Write-Ahead Logging temp files)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite3
+
+# Environment Variables & IDE Settings
+.env
+.vscode/
+.idea/
+.DS_Store
